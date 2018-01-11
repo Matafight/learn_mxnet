@@ -74,5 +74,29 @@ https://github.com/apache/incubator-mxnet/blob/master/example/multi-task/example
 
 ## checkpoint 的用法
 
+```python
+# construct a callback function to save checkpoints
+model_prefix = 'mx_mlp'
+checkpoint = mx.callback.do_checkpoint(model_prefix)
 
+mod = mx.mod.Module(symbol=net)
+mod.fit(train_iter, num_epoch=5, epoch_end_callback=checkpoint)
+
+#导入checkpoint 里的模型
+sym, arg_params, aux_params = mx.model.load_checkpoint(model_prefix, 3)
+assert sym.tojson() == net.tojson()
+
+# assign the loaded parameters to the module
+mod.set_params(arg_params, aux_params)
+mod = mx.mod.Module(symbol=sym)
+mod.fit(train_iter,
+        num_epoch=8,
+        arg_params=arg_params,
+        aux_params=aux_params,
+        begin_epoch=3)
+
+```
 ## 画出loss或acc的曲线变化
+
+
+## 目前训练数据集上的acc只有50%，基本跟随机猜测差不多，可能是训练数据不够导致的，大概生成了两万个训练数据，我这小笔记本上的 nvidia 940M 也不能做更多了。目前就当作是熟悉mxnet的语法吧。
