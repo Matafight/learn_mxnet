@@ -3,7 +3,7 @@
 from mxnet import ndarray as nd
 from mxnet import autograd
 from mxnet import gluon
-
+import mxnet as mx
 def SGD(params,lr):
     for param in params:
         param[:] = param -lr*param.grad
@@ -27,6 +27,20 @@ def evaluate_accuracy(data_iter,net,ctx):
 def transform(data,label):
     return data.astype('float32')/255,label.astype('float32')
 
+def try_gpu():
+    
+    try:
+        ctx=mx.gpu()
+        _ = nd.array([0],ctx=ctx)
+    except:
+        ctx=mx.cpu()
+    return ctx
+
+
+
+def update(params,learning_rate):
+    for param in params:
+        param[:] = param- learning_rate*param.grad
 
 def load_data_fashion_mnist(batch_size):
     mnist_train = gluon.data.vision.FashionMNIST(train = True,transform = transform)
