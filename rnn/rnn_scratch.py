@@ -2,9 +2,10 @@
 
 import random
 import mxnet as mx
+import numpy as np
 import sys
 sys.path.append('..')
-from util import update
+import util
 import mxnet.ndarray as nd
 
 
@@ -12,19 +13,13 @@ def load_data():
     with open('./input/jaychou_lyrics.txt','r',encoding='utf-8') as fh:
         lines = fh.read()
         print(len(lines))
-
     #将list中所有元素拼接成一个长度字符串
-    newlines = [item.replace('\n',' ') for item in lines]
-    content = ' '.join(newlines) 
-    content = ''.join(content.split())
-
-
+    content = lines.replace('\n',' ').replace('\r',' ')
     # construct data iterator 
-    content = content[0:10000]
+    content = content[0:20000]
     idx_to_char = list(set(content))
     char_to_idx = dict([(char,int(i)) for i,char in enumerate(idx_to_char)])
     vocab_size = len(idx_to_char)
-
     idx_corpus = [char_to_idx[c] for c in content]
     return content,idx_to_char,char_to_idx,idx_corpus,vocab_size
 
@@ -70,8 +65,6 @@ def data_iter_consective(num_steps,batch_size,corpus,ctx=mx.cpu()):
     #连续采样
     num_patch = len(corpus)//num_steps
     num_batch = num_patch//batch_size
-    
-    
     for i_batch in range(num_batch):
         total_data = []
         total_label = []
@@ -92,17 +85,17 @@ def data_iter_consective(num_steps,batch_size,corpus,ctx=mx.cpu()):
 
 def one_hot(data,vocab_size):
     inp = [nd.one_hot(x,vocab_size) for x in data.T]
-    #len(inp) = num_steps
     return inp
 
-def get_params():
+def get_params(input_dim,hidden_dim,output_dim,ctx=mx.cpu()):
     #set params
-    W_xh= nd.random_normal(scale=std,shape=(input_dim,hidden_dim))
-    W_hh = nd.random_normal(scale=std,shape=(hidden_dim,hidden_dim))
-    b_h = nd.zeros(hidden_dim)
+    std = .01
+    W_xh= nd.random_normal(scale=std,shape=(input_dim,hidden_dim),ctx=ctx)
+    W_hh = nd.random_normal(scale=std,shape=(hidden_dim,hidden_dim),ctx=ctx)
+    b_h = nd.zeros(hidden_dim,ctx=ctx)
     
-    W_hy = nd.random_normal(scale = std,shape=(hidden_dim,output_dim))
-    b_y = nd.zeros(output_dim)
+    W_hy = nd.random_normal(scale = std,shape=(hidden_dim,output_dim),ctx=ctx)
+    b_y = nd.zeros(output_dim,ctx=ctx)
     params = [W_xh,W_hh,b_h,W_hy,b_y]
     for param in params:
         param.attach_grad()
@@ -119,29 +112,16 @@ def rnn(inputs,states,*params):
         outputs.append(Y)
     return (outputs,H)
 
-content,idx_to_char,char_to_idx,idx_corpus,vocab_size = load_data()
-#construct rnn
-hidden_dim = 128
-output_dim = vocab_size
-input_dim = vocab_size
-batch_size  = 56
-std = .01
-#test
-params = get_params()
-states = nd.zeros((batch_size,hidden_dim))
-inputs = [nd.ones((batch_size,input_dim))] *3
-(outputs,H) = rnn(inputs,states,*params)
-
 #training and inference
 
-def predict_rnn(rnn,prefix,vocab_size,num_char,params,hidden_dim,char_to_idx,idx_to_char,ctx=mx.cpu()):
+def predict_rnn(rnn,prefix,vocab_size,num_char,params,hidden_dim,char_to_idx,idx_to_char):
     H = nd.zeros(shape=(1,hidden_dim),ctx=ctx)
     outputs = []
     print(char_to_idx[prefix[0]])
     outputs.append(char_to_idx[prefix[0]])
     
     for i in range(num_char+len(prefix)):
-        x = nd.array([outputs[-1]])
+        x = nd.array([outputs[-1]],ctx=ctx)
         x = one_hot(x,vocab_size)
         out, H = rnn(x,H,*params)
         if i< len(prefix)-1:
@@ -153,7 +133,7 @@ def predict_rnn(rnn,prefix,vocab_size,num_char,params,hidden_dim,char_to_idx,idx
     return ''.join([idx_to_char[x] for x in outputs])
 
 # gradient cliping
-def grad_clipping(params,theta,ctx = mx.cpu()):
+def grad_clipping(params,theta,ctx= mx.cpu()):
     #python传参是传的引用，所有不用返回值
     if theta is not None:
         norm = nd.array([0.0],ctx=ctx)
@@ -166,37 +146,45 @@ def grad_clipping(params,theta,ctx = mx.cpu()):
 
 # training
 #perplexity 困惑度
-import numpy as np
-def train_and_predict(num_steps,ctx=mx.cpu()):
-    #how?
+def train_and_predict(rnn_network,get_params,num_steps,idx_corpus,num_epochs=20,batch_size=64,vocab_size=256,hidden_dim = 128,learning_rate = 0.1,ctx=mx.cpu()):
     #定义损失
     loss = mx.gluon.loss.SoftmaxCrossEntropyLoss()
-    
     #生成数据迭代器
     #循环num_epoch
-    num_epochs = 10
     
-    params = get_params()
+    params = get_params(vocab_size,hidden_dim,vocab_size,ctx=ctx)
     for epoch in range(num_epochs):
-        data_iter = data_iter_random(num_steps,batch_size,idx_corpus)
         train_loss = 0.0
+        data_iter = data_iter_random(num_steps,batch_size,idx_corpus)
         num_example = 0.0
         for data,label in data_iter:
-            data = one_hot(nd.array(data),vocab_size)
+            data = one_hot(nd.array(data,ctx=ctx),vocab_size)
             H = nd.zeros(shape=(batch_size,hidden_dim),ctx=ctx)
-            label = nd.array(label)
+            label = nd.array(label,ctx=ctx)
             with mx.autograd.record():
-                out,H = rnn(data,H,*params)
-                #计算loss
-                for i in range(len(out)):
-                    myloss = loss(out[i],label[:,i])
-                    train_loss += nd.sum(myloss).asscalar()
-                myloss.backward()
-                #grad_clipping(params,5)
-                update(params,0.1)
-                num_example += myloss.size
-        print(np.exp(train_loss/num_example))
-        print(num_example)
+                outputs,H = rnn_network(data,H,*params)
+                label = label.T.reshape((-1,))
+                outputs = nd.concat(*outputs, dim=0)
+                myloss=loss(outputs,label)
+            myloss.backward()
+            grad_clipping(params,5,ctx=ctx)
+            util.update(params,learning_rate)
+            train_loss += nd.sum(myloss).asscalar()
+            num_example += myloss.size
+        print('Epoch：%d  Prelexity: %f'%(epoch,np.exp(train_loss/num_example)))
+        #print(np.exp(train_loss/num_example))
 
-num_steps=10
-train_and_predict(num_steps=num_steps)
+if __name__=='__main__':
+    ctx = util.try_gpu()
+    content,idx_to_char,char_to_idx,idx_corpus,vocab_size = load_data()
+    #construct rnn
+    hidden_dim = 128
+    output_dim = vocab_size
+    input_dim = vocab_size
+    batch_size  = 56
+    learning_rate = 0.1
+    num_epochs = 50
+    params = get_params(input_dim,hidden_dim,output_dim)
+    num_steps=10
+    train_and_predict(rnn_network = rnn,get_params = get_params,num_steps=num_steps,idx_corpus = idx_corpus,num_epochs=num_epochs,batch_size=batch_size,vocab_size=vocab_size,hidden_dim=hidden_dim,learning_rate=learning_rate,ctx=ctx)
+
