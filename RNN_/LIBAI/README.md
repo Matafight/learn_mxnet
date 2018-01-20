@@ -26,10 +26,15 @@ decoded = self.decoder(output.reshape((-1,self.hidden_dim)))
 ```
 其中output.reshape((-1,self.hidden_dim))的意思是将outputreshape成两维，其中第二个维度为hidden_dim，第一个维度根据原始output的维度自动推算得出，由于原始output的shape为(num_steps,batch_size,hidden_dim),所有reshape之后的维度为(num_steps*batch_size,hidden_dim)。那么原来的(num_steps,batch_size)这两个维度是按照什么方向拼接成一维的呢?
 实验验证一下，原始数据shape=(3,4,5)
+
 ![](http://7xiegr.com1.z0.glb.clouddn.com/reshape1.PNG)
+
 reshape((-1,5))之后为:
+
 ![](http://7xiegr.com1.z0.glb.clouddn.com/reshape2.PNG)
+
 所以，output.reshape((-1,self.hidden_dim))之后的output是这样的:
+
 ![](http://7xiegr.com1.z0.glb.clouddn.com/reshape3.PNG)
 
 由于在train_and_eval函数中计算损失时是num_steps*batch_size这么多个样本一起计算而没有使用循环，所以对label也要reshape，将(batch_size,num_steps)的label转置成(num_steps,batch_size)。从而使output的每一行与label的每一行一一对应，计算loss时不会算错。
