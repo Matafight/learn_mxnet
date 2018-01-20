@@ -35,7 +35,7 @@ reshape((-1,5))之后为:
 
 所以，output.reshape((-1,self.hidden_dim))之后的output是这样的:
 
-![](http://7xiegr.com1.z0.glb.clouddn.com/reshape3.PNG)
+![](http://7xiegr.com1.z0.glb.clouddn.com/reshape3.png)
 
 由于在train_and_eval函数中计算损失时是num_steps*batch_size这么多个样本一起计算而没有使用循环，所以对label也要reshape，将(batch_size,num_steps)的label转置成(num_steps,batch_size)。从而使output的每一行与label的每一行一一对应，计算loss时不会算错。
 ![](http://7xiegr.com1.z0.glb.clouddn.com/reshape4.png)
