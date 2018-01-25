@@ -16,7 +16,7 @@ def transform_data(path,num_steps):
     poems = []
     with open(path,encoding='utf-8') as fh:
         lines = fh.readlines()
-        for line in lines:
+        for line in lines[1:5000]:
             *title,content = line.strip().split(':')
             content.replace(' ','')
             #content may be empty
@@ -103,7 +103,7 @@ def get_pos_batch(poems_vec,batch_size,idx,ctx=mx.cpu()):
     return batch_data,batch_label
 
 class CustomIter(mx.io.DataIter):
-    def __init__(self, poems_vec, batch_size, num_steps):
+    def __init__(self, poems_vec, batch_size, num_steps,ctx=mx.cpu()):
         super(CustomIter, self).__init__()
         self.batch_size = batch_size
         #self.provide_data = [('data', (batch_size, num_steps))]
@@ -114,11 +114,12 @@ class CustomIter(mx.io.DataIter):
         self._num_steps = num_steps
         self._corpus = poems_vec
         self.num_batch = len(poems_vec)//self.batch_size
+        self._ctx=ctx
 
     def iter_next(self):
         if self._index > self.num_batch:
             return False
-        data,label = get_pos_batch(self._corpus,self.batch_size,self._index)
+        data,label = get_pos_batch(self._corpus,self.batch_size,self._index,ctx=self._ctx)
         self._next_data =  data
         self._next_label = label
         self._index += 1

@@ -7,6 +7,7 @@ import mxnet as mx
 import mxnet.ndarray as nd
 from poem_util import transform_data, generate_batch, train_test_split
 from data import *
+import time
 # parameters
 batch_size = 128
 embed_dim = 200
@@ -22,13 +23,14 @@ def try_gpu():
     return ctx
 
 #data
+ctx = try_gpu()
 corpus_vec,word_to_int = transform_data('../input/poems.txt',num_steps)
 vocab_size = len(word_to_int)
-data_iter = CustomIter(corpus_vec,batch_size,num_steps)
+data_iter = CustomIter(corpus_vec,batch_size,num_steps,ctx)
 #model
 
 def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps,ctx=mx.cpu()):
-    seq_input = mx.symbol.Variable('data',ctx=ctx)
+    seq_input = mx.symbol.Variable('data')
 
     #seq_inupt = mx.symbol.Reshape(seq_input,shape=(batch_size,num_steps))
     embedded_seq = mx.symbol.Embedding(data=seq_input, 
@@ -44,6 +46,7 @@ def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps,ctx=mx.cpu()):
                                        inputs=embedded_seq, 
                                        layout='NTC', 
                                        merge_outputs=True)
+
     #decoder
     pred = mx.sym.Reshape(outputs,shape=(-1,num_hidden))
     pred = mx.sym.FullyConnected(data = pred,num_hidden=vocab_size,name='pred')
@@ -51,14 +54,6 @@ def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps,ctx=mx.cpu()):
     pred = mx.sym.SoftmaxOutput(data = pred,name='softmax')
     return pred
 
-#def cross_entropy_loss(pred):
-#    label = mx.sym.Variable('label')
-#    #input label's shape (batch_size,num_steps),after reshape (batch_size*num_steps,) 
-#    label = mx.sym.Reshape(label,shape=(-1,))
-#    logits = mx.sym.log_softmax(pred,axis=-1)
-#    loss =  -mx.sym.pick(logits,label,axis=-1,keepdims = True)
-#    loss = mx.sym.mean(loss,axis=0,exclude=True)
-#    return mx.sym.make_loss(loss,name='nll')
 
 # training network
 
@@ -68,16 +63,17 @@ mod.bind(data_shapes = data_iter.provide_data,label_shapes=data_iter.provide_lab
 mod.init_params(initializer=mx.init.Xavier())
 mod.init_optimizer(optimizer='sgd',optimizer_params=(('learning_rate',0.1),))
 
-# loss.backward()
 metric = mx.metric.create('acc')
 num_epoch = 10
+start = time.time()
 for epoch in range(num_epoch):
     data_iter.reset()
     metric.reset()
     for batch in data_iter:
         mod.forward(batch,is_train=True)
-        print(mod.output_shapes)
         mod.update_metric(metric,batch.label)
         mod.backward()
         mod.update()
+        print('i')
     print('epoch %d train acc: %s' % (epoch,metric.get()))
+    print('elapse time:%s seconds'%(time.time()-start))
