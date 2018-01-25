@@ -16,7 +16,7 @@ def transform_data(path,num_steps):
     poems = []
     with open(path,encoding='utf-8') as fh:
         lines = fh.readlines()
-        for line in lines[1:5000]:
+        for line in lines[1:2000]:
             *title,content = line.strip().split(':')
             content.replace(' ','')
             #content may be empty

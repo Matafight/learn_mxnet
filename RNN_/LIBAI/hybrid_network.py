@@ -29,7 +29,7 @@ vocab_size = len(word_to_int)
 data_iter = CustomIter(corpus_vec,batch_size,num_steps,ctx)
 #model
 
-def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps,ctx=mx.cpu()):
+def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
     seq_input = mx.symbol.Variable('data')
 
     #seq_inupt = mx.symbol.Reshape(seq_input,shape=(batch_size,num_steps))
@@ -66,14 +66,17 @@ mod.init_optimizer(optimizer='sgd',optimizer_params=(('learning_rate',0.1),))
 metric = mx.metric.create('acc')
 num_epoch = 10
 start = time.time()
-for epoch in range(num_epoch):
-    data_iter.reset()
-    metric.reset()
-    for batch in data_iter:
-        mod.forward(batch,is_train=True)
-        mod.update_metric(metric,batch.label)
-        mod.backward()
-        mod.update()
-        print('i')
-    print('epoch %d train acc: %s' % (epoch,metric.get()))
-    print('elapse time:%s seconds'%(time.time()-start))
+#for epoch in range(num_epoch):
+#    data_iter.reset()
+#    metric.reset()
+#    for batch in data_iter:
+#        mod.forward(batch,is_train=True)
+#        mod.update_metric(metric,batch.label)
+#        mod.backward()
+#        mod.update()
+#    print('epoch %d train acc: %s' % (epoch,metric.get()))
+#    print('elapse time:%s seconds'%(time.time()-start))
+
+model_prefix = 'poem_rnn'
+checkpoint = mx.callback.do_checkpoint(model_prefix)
+mod.fit(data_iter,num_epoch=5,epoch_end_callback=checkpoint)
