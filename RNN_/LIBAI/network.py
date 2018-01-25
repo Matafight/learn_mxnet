@@ -124,7 +124,7 @@ dropout_rate = 0.2
 eval_period = 1
 
 context = try_gpu()
-corpus_vec,word_to_int = transform_data('../input/poems.txt')
+corpus_vec,word_to_int = transform_data('../input/poems.txt',num_steps)
 vocab_size = len(word_to_int)
 training_vec,testing_vec= train_test_split(corpus_vec)
 

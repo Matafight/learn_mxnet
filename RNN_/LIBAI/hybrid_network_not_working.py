@@ -1,6 +1,7 @@
 #_*_coding:utf-8_*_
 '''
 to support checkpont,we need to write hybrid version of network
+not working because gluon not support hybridRNN now
 '''
 import mxnet as mx
 from mxnet import gluon
