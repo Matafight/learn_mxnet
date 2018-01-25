@@ -80,3 +80,17 @@ start = time.time()
 model_prefix = 'poem_rnn'
 checkpoint = mx.callback.do_checkpoint(model_prefix)
 mod.fit(data_iter,num_epoch=5,epoch_end_callback=checkpoint)
+
+
+#导入checkpoint 里的模型
+#sym, arg_params, aux_params = mx.model.load_checkpoint(model_prefix, 3)
+#assert sym.tojson() == net.tojson()
+#
+## assign the loaded parameters to the module
+#mod.set_params(arg_params, aux_params)
+#mod = mx.mod.Module(symbol=sym)
+#mod.fit(train_iter,
+#        num_epoch=8,
+#        arg_params=arg_params,
+#        aux_params=aux_params,
+#        begin_epoch=3)
