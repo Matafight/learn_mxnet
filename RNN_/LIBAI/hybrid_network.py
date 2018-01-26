@@ -74,6 +74,7 @@ def train_step_by_step(data_iter,mod):
     metric = mx.metric.create('acc')
     num_epoch = 10
     start = time.time()
+    model_prefix='stepbystep_rnn'
     for epoch in range(num_epoch):
         data_iter.reset()
         metric.reset()
@@ -82,6 +83,8 @@ def train_step_by_step(data_iter,mod):
             mod.update_metric(metric,batch.label)
             mod.backward()
             mod.update()
+        if epoch %1 ==0:
+            mod.save_checkpoint(prefix=model_prefix,epoch = epoch,save_optimizer_states=True)
         print('epoch %d train acc: %s' % (epoch,metric.get()))
         print('elapse time:%s seconds'%(time.time()-start))
 
@@ -98,4 +101,5 @@ if __name__=='__main__':
     data_iter,vocab_size = load_data(batch_size,num_steps,context)
     mod = rnnModel(batch_size,vocab_size,embed_dim,num_hidden,num_steps)
     train_step_by_step(data_iter,mod)
+
 
