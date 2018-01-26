@@ -19,7 +19,7 @@ def load_existing_model_stepbystep():
     mod.bind(data_shapes = data_iter.provide_data,label_shapes=data_iter.provide_label)
     mod.init_optimizer(optimizer='sgd',optimizer_params=(('learning_rate',0.1),))
     metric = mx.metric.create('acc')
-    
+
     num_epoch = 10
     start = time.time()
     model_prefix='stepbystep_rnn'
@@ -35,6 +35,7 @@ def load_existing_model_stepbystep():
             mod.save_checkpoint(prefix=model_prefix,epoch = epoch,save_optimizer_states=True)
         print('epoch %d train acc: %s' % (epoch,metric.get()))
         print('elapse time:%s seconds'%(time.time()-start))
+    return mod
 
 
 
@@ -62,6 +63,10 @@ def load_existing_model_integrated():
             aux_params=aux_params,
             epoch_end_callback=checkpoint,
             begin_epoch=5)
+    return mod
 
+#the rnn constructed from mx.mod.Module seems not easy to inference from only a word,how? seems not possible
+def inference(mod,start_word):
+    pass
 if __name__ == '__main__':
         load_existing_model_stepbystep()

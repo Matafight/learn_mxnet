@@ -44,18 +44,24 @@ reshape((-1,5))之后为:
 
 
 
-### 构建网络
 #### 如何加速训练-hybridize
 
-因为gluon支持动态图和静态图的转换，动态图的优点是方便调试，静态图的优点是运行效率高。通过继承HybridBlock或HybridSequential来定义网络,新的网络默认是动态图，可以在动态图的情况下debug，当确认没有错误时，调用hybridize()方法将网络转换为静态图。
+- 因为gluon支持动态图和静态图的转换，动态图的优点是方便调试，静态图的优点是运行效率高。通过继承HybridBlock或HybridSequential来定义网络,新的网络默认是动态图，可以在动态图的情况下debug，当确认没有错误时，调用hybridize()方法将网络转换为静态图。
 
-貌似GRU、RNN、LSTM等并不支持hybridize，GRUCell支持hybridize。但是使用GRUCell就意味着需要对num_steps进行循环，因为一个cell只能处理一个time\_step的数据。
+- 貌似GRU、RNN、LSTM等并不支持hybridize，GRUCell支持hybridize。但是使用GRUCell就意味着需要对num_steps进行循环，因为一个cell只能处理一个time\_step的数据。
 
-如果想构建基于RNN的静态图，而又不使用RNNCell，应该使用mxnet.symbol相关api定义网络 https://mxnet.incubator.apache.org/versions/master/api/python/symbol/rnn.html#mxnet.rnn.GRUCell。
+- 如果想构建基于RNN的静态图，而又不使用RNNCell，应该使用mxnet.RNNCell相关API定义网络 https://mxnet.incubator.apache.org/versions/master/api/python/symbol/rnn.html#mxnet.rnn.GRUCell。
+
+- rnn_unroll_module.py 的代码就是使用mx.sym定义的静态网络，需要用mx.mod.Module wrap起来，由于在定义网络时time_steps这个参数是固定的，这样在训练时采用固定的time_steps训练。当做预测时，无法使用给定的一个word inference出后续的word。只能给定与time_steps相同长度的输入，由module计算其输出。这对于RNN来说是非常大的限制。
+
+- 为了克服上面的使用mx.mod.Module模块带来的问题，可以采用gluon API下的RNNCell，虽然一个Cell只能处理一个time的input，但是可以通过循环的方式来训练。
+
+
 
 参见:
 1. https://discuss.gluon.ai/t/topic/1828/7
 2. https://mxnet.incubator.apache.org/api/python/gluon/rnn.html
+
 #### Block和Sequential之间是什么关系?
 Block是mxnet中所有layer的基类，Sequential的作用是将各个Block拼接在一起。
 - Block的使用方法:https://mxnet.incubator.apache.org/api/python/gluon/gluon.html#mxnet.gluon.Block
@@ -63,5 +69,11 @@ Block是mxnet中所有layer的基类，Sequential的作用是将各个Block拼�
 
 
 ### 训练网络
+#### 分为以下几种方式
+- 使用mx.mod.Module 的fit方法
+- 也是使用mx.mod.Module，不过使用其step by step的训练方式，参见rnn_unroll_module.py中的相关函数。
+- 采用gluon的训练方式，清晰地写出每一步代码，参见 network.py中的训练函数
 ### 自动作诗(推理阶段)
+- mx.mod.Module模块不适合给定一个单词预测接下来多个单词的情形。
+
 
