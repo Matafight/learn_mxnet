@@ -22,7 +22,7 @@ def transform_data(path,num_steps):
     poems = []
     with open(path,encoding='utf-8') as fh:
         lines = fh.readlines()
-        for line in lines:
+        for line in lines[:5000]:
             *title,content = line.strip().split(':')
             content.replace(' ','')
             #content may be empty
@@ -47,6 +47,7 @@ def transform_data(path,num_steps):
     unique_word,_=zip(*words_list)
     #generate dict
     word_to_int = dict(zip(unique_word,range(len(unique_word))))
+    int_to_word = unique_word
 
     # map original sentences to ints
     #corpus_vec=[]
@@ -58,7 +59,7 @@ def transform_data(path,num_steps):
     #here is wrong , I need correct this later
     poems_vec = [list(map(lambda l:word_to_int.get(l,0),poem)) for poem in poems]
     #poems_vec = [list(map(lambda l:word_to_int.get(l,word_to_int.get(' ')),poem)) for poem in poems]
-    return poems_vec,word_to_int
+    return poems_vec,word_to_int,int_to_word
 
 def train_test_split(poems_vec):
     # 70% for training and 30% for testing 

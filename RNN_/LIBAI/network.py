@@ -9,6 +9,7 @@
 '''
 import mxnet as mx
 from mxnet import gluon
+import mxnet.ndarray as nd
 from mxnet.gluon import nn, rnn, autograd
 from poem_util import transform_data, generate_batch, train_test_split
 import time
@@ -79,6 +80,7 @@ def train_and_eval(train_iter,test_iter):
         hidden = model.begin_state(func = mx.nd.zeros, batch_size = batch_size,
                                    ctx = context)
         #get training  iterator here
+        start = time.time()
         for ibatch,(data,target) in enumerate(train_iter):
             data = data.T
             #I need to make sure it is stacked in the correct orientation, yes,it's right
@@ -104,16 +106,41 @@ def train_and_eval(train_iter,test_iter):
                 print('[Epoch %d ] loss %.2f, perplexity %.2f' % (
                     epoch + 1, cur_L, np.exp(cur_L)))
                 total_L = 0.0
+        end = time.time()
+        print('Epoch:%d, elapsed:%s'%(epoch,end-start))
+        #val_L = model_eval(test_iter)
+        inference_from_word(model,"春",10,hidden_dim,embed_dim,word_to_int,context)
+        #print('[Epoch %d] time cost %.2fs, validation loss %.2f, validation '
+        #      'perplexity %.2f' % (epoch + 1, time.time() - start_time, val_L,
+        #                           np.exp(val_L)))
 
-        val_L = model_eval(test_iter)
-        print('[Epoch %d] time cost %.2fs, validation loss %.2f, validation '
-              'perplexity %.2f' % (epoch + 1, time.time() - start_time, val_L,
-                                   np.exp(val_L)))
+# update on 1/26/2018, currently, we only support one word,we will support multi-words in the near future
+def inference_from_word(rnn,prefix,num_word,hidden_dim,embed_dim,word_to_int,ctx=mx.cpu()):
+    vocab_size = len(word_to_int)
+    hidden = nd.zeros(shape = (1,1,hidden_dim),ctx=ctx)
+    #假设输入的样本是batch_size = 1,num_steps = 1
+    prefix = word_to_int[prefix]
+    print('prefix:%f'%prefix)
+    prefix = nd.array([[prefix]],ctx=ctx)
+    outputs = []
+    for i in range(num_word):
+        output,hidden = rnn(prefix,hidden)
+        #get words based on the current output with shape(1,vocab_size)
+        output_idx = int(nd.argmax(output,axis=1).asscalar())+1
+        prefix = nd.array([[output_idx]],ctx=ctx)
+        outputs.append(output_idx)
+    #get words from index
+    words = [int_to_word[i] for i in outputs]       
+    print(words)
+    
+    
+
+
 
 # 定义参数
 model_name = 'gru'
 embed_dim = 100
-hidden_dim = 100
+hidden_dim = 50
 num_layers = 1
 lr = 0.1
 clipping_norm = 0.2
@@ -121,10 +148,10 @@ epochs=1
 batch_size = 64
 num_steps = 90
 dropout_rate = 0.2
-eval_period = 1
+eval_period = 10
 
 context = try_gpu()
-corpus_vec,word_to_int = transform_data('../input/poems.txt',num_steps)
+corpus_vec,word_to_int,int_to_word = transform_data('../input/poems.txt',num_steps)
 vocab_size = len(word_to_int)
 training_vec,testing_vec= train_test_split(corpus_vec)
 

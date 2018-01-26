@@ -30,7 +30,7 @@ def try_gpu():
 context = try_gpu()
 
 def load_data(batch_size,num_steps,ctx=mx.cpu()):
-    corpus_vec,word_to_int = transform_data('../input/poems.txt',num_steps)
+    corpus_vec,word_to_int,int_to_word = transform_data('../input/poems.txt',num_steps)
     vocab_size = len(word_to_int)
     data_iter = CustomIter(corpus_vec,batch_size,num_steps,ctx)
     return data_iter,vocab_size
