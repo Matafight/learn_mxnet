@@ -54,7 +54,7 @@ reshape((-1,5))之后为:
 
 - rnn_unroll_module.py 的代码就是使用mx.sym定义的静态网络，需要用mx.mod.Module wrap起来，由于在定义网络时time_steps这个参数是固定的，这样在训练时采用固定的time_steps训练。当做预测时，无法使用给定的一个word inference出后续的word。只能给定与time_steps相同长度的输入，由module计算其输出。这对于RNN来说是非常大的限制。
 
-- 为了克服上面的使用mx.mod.Module模块带来的问题，可以采用gluon API下的RNNCell，虽然一个Cell只能处理一个time的input，但是可以通过循环的方式来训练。
+- 为了克服上面的使用mx.mod.Module模块带来的问题，可以采用gluon API下的RNNCell，虽然一个Cell只能处理一个time的input，但是可以通过循环的方式来训练。参见 hybrid_network_not_working.py代码，貌似也需要固定time_steps。
 
 
 
@@ -75,5 +75,6 @@ Block是mxnet中所有layer的基类，Sequential的作用是将各个Block拼�
 - 采用gluon的训练方式，清晰地写出每一步代码，参见 network.py中的训练函数
 ### 自动作诗(推理阶段)
 - mx.mod.Module模块不适合给定一个单词预测接下来多个单词的情形。
+- ~~一个可行的使用mx.mod.Module的方法是:给定长度为time_steps的输入，module会给出长度为time_steps的输出，只需要使用滑动窗口的方式持续构造输入就可以了。~~ 并不可行，因为使用Module wrap的模型的input size通过bind方法固定了，而通常这个size与batch_size相关。见 rnn_inference.py中的注释部分解释。
 
 

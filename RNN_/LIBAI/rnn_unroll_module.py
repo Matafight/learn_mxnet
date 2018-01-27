@@ -6,7 +6,7 @@ from mxnet import rnn
 import mxnet as mx
 import mxnet.ndarray as nd
 from poem_util import transform_data, generate_batch, train_test_split
-from data import *
+from data import CustomIter
 import time
 # parameters
 

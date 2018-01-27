@@ -22,7 +22,7 @@ def transform_data(path,num_steps):
     poems = []
     with open(path,encoding='utf-8') as fh:
         lines = fh.readlines()
-        for line in lines[:5000]:
+        for line in lines[:500]:
             *title,content = line.strip().split(':')
             content.replace(' ','')
             #content may be empty
@@ -89,6 +89,7 @@ def generate_batch(poems_vec,word_to_int,batch_size,ctx=mx.cpu()):
         #generate label
         batch_label=batch_data.copy()
         batch_label[:,0:batch_label.shape[1]-1] = batch_data[:,1:batch_label.shape[1]]
+        #batch_size * num_steps
         yield (batch_data,batch_label)
 
 

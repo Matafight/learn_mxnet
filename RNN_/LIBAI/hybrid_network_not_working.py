@@ -11,7 +11,7 @@ from poem_util import transform_data, generate_batch, train_test_split
 import time
 import numpy as np
 class RNNModel(rnn.HybridRecurrentCell):
-    def __init__(self,mode,vocab_size,embed_dim,hidden_dim,num_layers,dropout=0.5,**kwargs):
+    def __init__(self,mode,vocab_size,embed_dim,hidden_dim,num_layers,num_steps,dropout=0.5,**kwargs):
         super(RNNModel,self).__init__(**kwargs)
         with self.name_scope():
             self.drop = nn.Dropout(dropout)
@@ -29,12 +29,16 @@ class RNNModel(rnn.HybridRecurrentCell):
                 raise ValueError("Invalid mode %s.optiions are rnn_relu,rnn_tanh,lstm and gru"%mode)
             self.decoder = nn.Dense(vocab_size,in_units=hidden_dim)
             self.hidden_dim = hidden_dim
+            self.num_steps = int(num_steps)
 
     def hybrid_forward(self,F,inputs,state):
+        #F is symbol when hybridized, otherwise ndarray
         emb = self.drop(self.encoder(inputs))
-        num_steps=emb.shape[0]
+        # the question is that the sym may not has the shape method,how to handle with this situatation??
+        # solution 1:fixed the num_steps
         output = []
-        for i in range(num_steps):
+        #opps! for loop is not supported in hybridnetwork
+        for i in range(self.num_steps):
             cur_output,state = self.rnn(emb[i],state)
             output.append(cur_output)
         output = nd.array(output)
@@ -78,13 +82,13 @@ def model_eval(data_iter):
 def train_and_eval(train_iter,test_iter):
     for epoch in range(epochs):
         total_L = 0.0
-        start_time = time.time()
         hidden = model.begin_state(func = mx.nd.zeros, batch_size = batch_size,
                                    ctx = context)
-        #get training  iterator here
         for ibatch,(data,target) in enumerate(train_iter):
+            print('i\n')
+            #(batch_size,num_steps)->(num_steps,batch_size)
             data = data.T
-            #I need to make sure it is stacked in the correct orientation, yes,it's right
+            #num_steps个batch_size
             target = target.T.reshape((-1,))
             # 从计算图分离隐含状态。
             hidden = detach(hidden)
@@ -102,16 +106,9 @@ def train_and_eval(train_iter,test_iter):
             trainer.step(batch_size)
             total_L += mx.nd.sum(L).asscalar()
             print(total_L)
-            #if ibatch % eval_period == 0 and ibatch > 0:
-            #    cur_L = total_L / num_steps / batch_size / eval_period
-            #    print('[Epoch %d ] loss %.2f, perplexity %.2f' % (
-            #        epoch + 1, cur_L, np.exp(cur_L)))
-            #    total_L = 0.0
 
-        #val_L = model_eval(test_iter)
-        #print('[Epoch %d] time cost %.2fs, validation loss %.2f, validation '
-        #      'perplexity %.2f' % (epoch + 1, time.time() - start_time, val_L,
-        #                           np.exp(val_L)))
+def inference():
+    pass
 
 # 定义参数
 model_name = 'gru'
@@ -122,18 +119,19 @@ lr = 0.1
 clipping_norm = 0.2
 epochs=1
 batch_size = 64
-num_steps = 90
+num_steps = 50
 dropout_rate = 0.2
 eval_period = 1
 
 context = try_gpu()
-corpus_vec,word_to_int = transform_data('../input/poems.txt')
+corpus_vec,word_to_int,int_to_word = transform_data('../input/poems.txt',num_steps)
 vocab_size = len(word_to_int)
 training_vec,testing_vec= train_test_split(corpus_vec)
+num_steps =  max(map(len,corpus_vec)) 
 
 model = RNNModel(model_name, vocab_size, embed_dim, hidden_dim,
-                       num_layers, dropout_rate)
-#model.hybridize()
+                       num_layers, num_steps,dropout_rate)
+model.hybridize()
 model.collect_params().initialize(mx.init.Xavier(), ctx=context)
 trainer = gluon.Trainer(model.collect_params(), 'sgd',
                         {'learning_rate': lr, 'momentum': 0, 'wd': 0})
