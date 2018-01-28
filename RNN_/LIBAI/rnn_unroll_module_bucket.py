@@ -1,6 +1,10 @@
 #_*_coding:utf-8_*_
 '''
 static graph
+using bucketing
+step1: rewrite my own BucketSentenceIter for input iterator
+step2: define sym_gen function
+step3: using BucketingModule
 '''
 from mxnet import rnn
 import mxnet as mx
@@ -8,7 +12,6 @@ import mxnet.ndarray as nd
 from poem_util import transform_data, generate_batch, train_test_split
 from data import CustomIter
 import time
-# parameters
 
 def get_parameters():
     batch_size = 128
@@ -37,15 +40,15 @@ def load_data(batch_size,num_steps,ctx=mx.cpu()):
     data_iter = CustomIter(corpus_vec,batch_size,num_steps,ctx)
     return data_iter,vocab_size,num_steps
 
+
 def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
     seq_input = mx.symbol.Variable('data')
-
+    label = mx.symbol.Variable('softmax_label')
     #seq_inupt = mx.symbol.Reshape(seq_input,shape=(batch_size,num_steps))
     embedded_seq = mx.symbol.Embedding(data=seq_input, 
                                        input_dim=vocab_size, 
                                        output_dim=embed_dim)
     #weird!why reshape seq_input before embedding not working?                                     
-    #prove this reshape function reshape the input in the right direction
     embedded_seq = mx.sym.Reshape(embedded_seq,shape=(batch_size,num_steps,embed_dim))
     lstm_cell = mx.rnn.LSTMCell(num_hidden=num_hidden)
     #NTC means batch_size, num_steps,input_dimensions
@@ -59,7 +62,9 @@ def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
     pred = mx.sym.Reshape(outputs,shape=(-1,num_hidden))
     pred = mx.sym.FullyConnected(data = pred,num_hidden=vocab_size,name='pred')
     pred = mx.sym.Reshape(pred,shape=(-1,vocab_size),name='pred1')
-    pred = mx.sym.SoftmaxOutput(data = pred,name='softmax')
+    # add on 1/18 2018,is this right?
+    label = mx.sym.Reshape(label,shape=(-1,))
+    pred = mx.sym.SoftmaxOutput(data = pred,label = label ,name='softmax')
     return pred
 
 def rnnModel(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
@@ -101,7 +106,27 @@ def train_integrad(data_iter,mod):
 if __name__=='__main__':
     batch_size,embed_dim,num_steps,num_hidden = get_parameters()
     data_iter,vocab_size,num_steps = load_data(batch_size,num_steps,context)
-    mod = rnnModel(batch_size,vocab_size,embed_dim,num_hidden,num_steps)
-    train_step_by_step(data_iter,mod)
+    #mod = rnnModel(batch_size,vocab_size,embed_dim,num_hidden,num_steps)
+    #train_step_by_step(data_iter,mod)
+
+    corpus_vec,word_to_int,int_to_word = transform_data('../input/poems.txt',num_steps)
+    sentences,vocab = rnn.encode_sentences(corpus_vec,invalid_label=-1,start_label=0)
+    buckets  = [32,48,64,96]
+    invalid_label = 0
+    data_train = mx.rnn.BucketSentenceIter(sentences,batch_size = batch_size,buckets=buckets)
+    def sym_gen(seq_len):
+        pred = poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,seq_len)
+        return pred,('data',),('softmax_label',)
+    model = mx.mod.BucketingModule(sym_gen = sym_gen,
+                                   default_bucket_key=data_train.default_bucket_key,
+                                   context = context)
+    model_prefix = 'poem_rnn'
+    save_period = 2
+    checkpoint = mx.callback.do_checkpoint(model_prefix,period = save_period)
+    model.fit(data_train,num_epoch=5,epoch_end_callback=checkpoint)
+        
+        
+
+    
 
 

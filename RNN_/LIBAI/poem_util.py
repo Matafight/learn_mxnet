@@ -18,16 +18,28 @@ import numpy as np
 import mxnet as mx
 
 #没有考虑停止词
+'''
+todo:
+1. remove punctuation
+2. add begin and end token in each sentence
+3. remove extra space
+4. for words not in dict ,use <UNK> token instead
+'''
+
 def transform_data(path,num_steps):   
     poems = []
+    start_token = 'B'
+    end_token = 'E'
+    unknown_token = 'U'
     with open(path,encoding='utf-8') as fh:
         lines = fh.readlines()
         for line in lines[:500]:
             *title,content = line.strip().split(':')
             content.replace(' ','')
             #content may be empty
-            if (len(content)>num_steps or len(content)==0):
+            if (len(content)>num_steps or len(content)<5):
                 continue
+            content = start_token+content+end_token
             poems.append(content)
 
     #逗号怎么处理呢？
