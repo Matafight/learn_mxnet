@@ -84,6 +84,16 @@ def generate_batch(poems_vec,word_to_int,batch_size,ctx=mx.cpu()):
         batch_label[:,0:batch_label.shape[1]-1] = batch_data[:,1:batch_label.shape[1]]
         yield (batch_data,batch_label)
 
+# test if my CustomIter is wrong! 
+def test_mx_io_dataiter(corpus_vec,batch_size,ctx):
+    max_len = max(map(len,corpus_vec))
+    for item in corpus_vec:
+        while len(item)<max_len:
+            item.append(0)
+    corpus_vec = mx.ndarray.array(corpus_vec,ctx=ctx)
+    dataiter = mx.io.NDArrayIter(data = corpus_vec,label=corpus_vec,batch_size=batch_size,data_name='data',label_name='softmax_label')
+    return dataiter
+    
 #当前必须确保 num_steps = max_len
 def get_pos_batch(poems_vec,batch_size,idx,ctx=mx.cpu()):
     num_batch = len(poems_vec)//batch_size
@@ -98,18 +108,14 @@ def get_pos_batch(poems_vec,batch_size,idx,ctx=mx.cpu()):
     #generate label
     batch_label=batch_data.copy()
     batch_label[:,0:batch_label.shape[1]-1] = batch_data[:,1:batch_label.shape[1]]
-    batch_data = batch_data.reshape((-1,))
-    batch_label = batch_label.reshape((-1,))
     return batch_data,batch_label
 
 class CustomIter(mx.io.DataIter):
     def __init__(self, poems_vec, batch_size, num_steps,ctx=mx.cpu()):
         super(CustomIter, self).__init__()
         self.batch_size = batch_size
-        #self.provide_data = [('data', (batch_size, num_steps))]
-        self.provide_data = [('data', (batch_size*num_steps,))]
-        #self.provide_label = [('softmax_label', (batch_size,num_steps))]
-        self.provide_label = [('softmax_label', (batch_size*num_steps,))]
+        self.provide_data = [('data', (batch_size, num_steps))]
+        self.provide_label = [('softmax_label', (batch_size,num_steps))]
         self._index = 0
         self._num_steps = num_steps
         self._corpus = poems_vec
@@ -141,3 +147,6 @@ class CustomIter(mx.io.DataIter):
 
     def getlabel(self):
         return [self._next_label]
+
+if __name__ == '__main__':
+    test_mx_io_dataiter()

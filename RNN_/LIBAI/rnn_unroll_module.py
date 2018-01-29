@@ -6,7 +6,7 @@ from mxnet import rnn
 import mxnet as mx
 import mxnet.ndarray as nd
 from poem_util import transform_data, generate_batch, train_test_split
-from data import CustomIter
+from data import CustomIter,test_mx_io_dataiter
 import time
 # parameters
 
@@ -34,19 +34,16 @@ def load_data(batch_size,num_steps,ctx=mx.cpu()):
     vocab_size = len(word_to_int)
     num_steps = max(map(len,corpus_vec)) 
     print(num_steps)
-    data_iter = CustomIter(corpus_vec,batch_size,num_steps,ctx)
+    #data_iter = CustomIter(corpus_vec,batch_size,num_steps,ctx)
+    data_iter = test_mx_io_dataiter(corpus_vec,batch_size,ctx)
     return data_iter,vocab_size,num_steps
 
 def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
     seq_input = mx.symbol.Variable('data')
-
-    #seq_inupt = mx.symbol.Reshape(seq_input,shape=(batch_size,num_steps))
+    label = mx.sym.Variable('softmax_label')
     embedded_seq = mx.symbol.Embedding(data=seq_input, 
                                        input_dim=vocab_size, 
                                        output_dim=embed_dim)
-    #weird!why reshape seq_input before embedding not working?                                     
-    #prove this reshape function reshape the input in the right direction
-    embedded_seq = mx.sym.Reshape(embedded_seq,shape=(batch_size,num_steps,embed_dim))
     lstm_cell = mx.rnn.LSTMCell(num_hidden=num_hidden)
     #NTC means batch_size, num_steps,input_dimensions
     #outputs is merged into a single symbol of shape (batch_size,num_steps,hidden_dim)
@@ -58,8 +55,9 @@ def poem_rnn(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
     #decoder
     pred = mx.sym.Reshape(outputs,shape=(-1,num_hidden))
     pred = mx.sym.FullyConnected(data = pred,num_hidden=vocab_size,name='pred')
-    pred = mx.sym.Reshape(pred,shape=(-1,vocab_size),name='pred1')
-    pred = mx.sym.SoftmaxOutput(data = pred,name='softmax')
+    label = mx.sym.Reshape(label,shape=(-1,))
+    #https://github.com/apache/incubator-mxnet/issues/2116 
+    pred = mx.sym.SoftmaxOutput(data = pred,label=label,name='softmax')
     return pred
 
 def rnnModel(batch_size,vocab_size,embed_dim,num_hidden,num_steps):
@@ -73,7 +71,8 @@ def train_step_by_step(data_iter,mod):
     mod.bind(data_shapes = data_iter.provide_data,label_shapes=data_iter.provide_label)
     mod.init_params(initializer=mx.init.Xavier())
     mod.init_optimizer(optimizer='sgd',optimizer_params=(('learning_rate',0.1),))
-    metric = mx.metric.create('acc')
+    metric = mx.metric.create(mx.metric.Perplexity(ignore_label=-1))
+
     num_epoch = 10
     start = time.time()
     model_prefix='stepbystep_rnn'
@@ -95,7 +94,10 @@ def train_integrad(data_iter,mod):
     model_prefix = 'poem_rnn'
     save_period = 1
     checkpoint = mx.callback.do_checkpoint(model_prefix,period = save_period)
-    mod.fit(data_iter,num_epoch=5,epoch_end_callback=checkpoint)
+    mod.fit(data_iter,
+            num_epoch=5,
+            eval_metric=mx.metric.Perplexity(ignore_label=-1),
+            epoch_end_callback=checkpoint)
 
 
 if __name__=='__main__':
@@ -103,5 +105,6 @@ if __name__=='__main__':
     data_iter,vocab_size,num_steps = load_data(batch_size,num_steps,context)
     mod = rnnModel(batch_size,vocab_size,embed_dim,num_hidden,num_steps)
     train_step_by_step(data_iter,mod)
-
+    #train_integrad(data_iter,mod)
+    
 

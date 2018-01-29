@@ -5,3 +5,4 @@ __pycache__/
 *.params
 *.json
 *.states
+*_test.py
