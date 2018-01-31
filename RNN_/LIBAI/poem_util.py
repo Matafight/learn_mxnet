@@ -107,6 +107,18 @@ def generate_batch(poems_vec,word_to_int,batch_size,ctx=mx.cpu()):
         yield (batch_data,batch_label)
 
 
+# get reuseble generator
+class ReusableGenerator:
+    def __init__(self, generator_factory,corpus_vec,word2int,batch_size,ctx):
+        self.generator_factory = generator_factory
+        self.corpus_vec = corpus_vec
+        random.shuffle(self.corpus_vec)
+        self.word2int = word2int
+        self.batch_size = batch_size
+        self.ctx= ctx
+
+    def __iter__(self):
+        return self.generator_factory(self.corpus_vec,self.word2int,self.batch_size,self.ctx)
 
 #define network
 

@@ -11,7 +11,7 @@ import mxnet as mx
 from mxnet import gluon
 import mxnet.ndarray as nd
 from mxnet.gluon import nn, rnn, autograd
-from poem_util import transform_data, generate_batch, train_test_split
+from poem_util import transform_data, generate_batch, train_test_split,ReusableGenerator
 import time
 import numpy as np
 class RNNModel(gluon.Block):
@@ -108,6 +108,9 @@ def train_and_eval(train_iter,test_iter):
         #print('Epoch:%d, elapsed:%s'%(epoch,end-start))
         #val_L = model_eval(test_iter)
         inference_from_word(model,"春",10,hidden_dim,embed_dim,word_to_int,context)
+        if epoch%save_period ==0:
+            filenames = checkpoint_path+'epoch_'+str(epoch)+'.params'
+            model.save_params(filenames)
         #print('[Epoch %d] time cost %.2fs, validation loss %.2f, validation '
         #      'perplexity %.2f' % (epoch + 1, time.time() - start_time, val_L,
         #                           np.exp(val_L)))
@@ -147,6 +150,8 @@ batch_size = 64
 num_steps = 90
 dropout_rate = 0.2
 eval_period = 15
+checkpoint_path = './checkpoints/'
+save_period = 5
 
 context = try_gpu()
 corpus_vec,word_to_int,int_to_word = transform_data('../input/poems.txt',num_steps)
@@ -160,7 +165,7 @@ trainer = gluon.Trainer(model.collect_params(), 'sgd',
                         {'learning_rate': lr, 'momentum': 0, 'wd': 0})
 loss = gluon.loss.SoftmaxCrossEntropyLoss()
 
-testing_iter = generate_batch(testing_vec,word_to_int,batch_size,ctx=context)
-training_iter = generate_batch(training_vec,word_to_int,batch_size,ctx=context)
+testing_iter =  ReusableGenerator(generate_batch,testing_vec,word_to_int,batch_size,ctx=context)
+training_iter = ReusableGenerator(generate_batch,training_vec,word_to_int,batch_size,ctx=context)
 print('start training...\n')
 train_and_eval(training_iter,testing_iter)
