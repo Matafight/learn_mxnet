@@ -33,12 +33,14 @@ def transform_data(path,num_steps):
     unknown_token = 'U'
     with open(path,encoding='utf-8') as fh:
         lines = fh.readlines()
-        for line in lines[:1000]:
+        for line in lines:
             *title,content = line.strip().split(':')
             content.replace(' ','')
             #content may be empty
             if (len(content)>num_steps or len(content)<5):
                 continue
+            content = content.replace('，',"")
+            content = content.replace('。',"")
             content = start_token+content+end_token
             poems.append(content)
 
@@ -69,7 +71,7 @@ def transform_data(path,num_steps):
     #return corpus_vec,word_to_int
 
     #here is wrong , I need correct this later
-    poems_vec = [list(map(lambda l:word_to_int.get(l,0),poem)) for poem in poems]
+    poems_vec = [list(map(lambda l:word_to_int.get(l,'U'),poem)) for poem in poems]
     #poems_vec = [list(map(lambda l:word_to_int.get(l,word_to_int.get(' ')),poem)) for poem in poems]
     return poems_vec,word_to_int,int_to_word
 
@@ -111,7 +113,7 @@ def generate_batch(poems_vec,word_to_int,batch_size,ctx=mx.cpu()):
             
 
 if __name__=='__main__':
-    poem_vec,word2int = transform_data('../input/poems.txt')
+    poem_vec,word2int,int2word = transform_data('../input/poems.txt',64)
     data_iter = generate_batch(poem_vec,word2int,batch_size=32)
     for i,(data,label) in enumerate(data_iter):
         print(i)

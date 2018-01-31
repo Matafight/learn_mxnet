@@ -19,9 +19,7 @@ class RNNModel(gluon.Block):
         super(RNNModel,self).__init__(**kwargs)
         with self.name_scope():
             self.drop = nn.Dropout(dropout)
-            #self.encoder = nn.Embedding(input_dim=vocab_size,output_dim = embed_dim,weight_initializer=mx.init.Uniform(0,1))
             self.encoder = nn.Embedding(input_dim=vocab_size,output_dim = embed_dim)
-
             if mode == 'rnn_relu':
                 self.rnn = rnn.RNN(hidden_dim,num_layers,activation='relu',dropout=dropout,input_size = embed_dim)
             elif mode == 'rnn_tanh':
@@ -81,6 +79,7 @@ def train_and_eval(train_iter,test_iter):
                                    ctx = context)
         #get training  iterator here
         start = time.time()
+        #training iter needs reset
         for ibatch,(data,target) in enumerate(train_iter):
             data = data.T
             #I need to make sure it is stacked in the correct orientation, yes,it's right
@@ -100,14 +99,13 @@ def train_and_eval(train_iter,test_iter):
 
             trainer.step(batch_size)
             total_L += mx.nd.sum(L).asscalar()
-            print(total_L)
             if ibatch % eval_period == 0 and ibatch > 0:
                 cur_L = total_L / num_steps / batch_size / eval_period
                 print('[Epoch %d ] loss %.2f, perplexity %.2f' % (
                     epoch + 1, cur_L, np.exp(cur_L)))
                 total_L = 0.0
         end = time.time()
-        print('Epoch:%d, elapsed:%s'%(epoch,end-start))
+        #print('Epoch:%d, elapsed:%s'%(epoch,end-start))
         #val_L = model_eval(test_iter)
         inference_from_word(model,"春",10,hidden_dim,embed_dim,word_to_int,context)
         #print('[Epoch %d] time cost %.2fs, validation loss %.2f, validation '
@@ -144,11 +142,11 @@ hidden_dim = 50
 num_layers = 1
 lr = 0.1
 clipping_norm = 0.2
-epochs=1
+epochs=10
 batch_size = 64
 num_steps = 90
 dropout_rate = 0.2
-eval_period = 10
+eval_period = 15
 
 context = try_gpu()
 corpus_vec,word_to_int,int_to_word = transform_data('../input/poems.txt',num_steps)
